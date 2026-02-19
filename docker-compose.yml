@@ -1,0 +1,15 @@
+services:
+  nginx_build:
+    build: ./nginx
+    environment:
+      - DOMAIN=test.com
+      - domain2=example.com
+    volumes:
+      - ./conf.d:/conf.d
+  nginx:
+    image: ghcr.io/sandro-sikic/nginx:latest
+    environment:
+      - DOMAIN=test.com
+      - domain2=example.com
+    volumes:
+      - ./conf.d:/conf.d
