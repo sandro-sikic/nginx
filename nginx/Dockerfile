@@ -1,4 +1,4 @@
-FROM nginx 
+FROM nginx:latest
 
 COPY entrypoint.sh /entrypoint.sh
 
