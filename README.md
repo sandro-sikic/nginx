@@ -4,6 +4,23 @@ A lightweight custom entrypoint that injects environment variables into your Ngi
 
 ---
 
+## Usage
+
+### Quick start — Docker Compose
+
+```yaml
+services:
+  nginx:
+    image: ghcr.io/sandro-sikic/nginx:latest
+    environment:
+      - DOMAIN=test.com
+      - domain2=example.com
+    volumes:
+      - ./conf.d:/conf.d
+```
+
+---
+
 ## How it works
 
 On every container start the entrypoint runs three steps in order:
@@ -13,39 +30,6 @@ On every container start the entrypoint runs three steps in order:
 3. **Substitute values** — replaces every `${VAR}` placeholder with the matching environment variable value. Only the braced `${VAR}` form is substituted; unbraced `$VAR` references (e.g. nginx variables like `$host`) are intentionally left untouched.
 
 All output is written to stderr with UTC timestamps and a log level (`INFO` / `WARN` / `ERROR`).
-
----
-
-## Repository structure
-
-```
-docker-compose.yml   # example compose file
-conf.d/              # config templates — mount this as /conf.d inside the container
-  production.conf
-nginx/
-  Dockerfile         # extends the official nginx image
-  entrypoint.sh      # the custom entrypoint
-  README.md          # this file
-```
-
----
-
-## Quick start — Docker Compose
-
-```yaml
-services:
-  nginx:
-    build: ./nginx
-    environment:
-      - DOMAIN=example.com
-      - DOMAIN2=other.com
-    volumes:
-      - ./conf.d:/conf.d
-```
-
-```bash
-docker compose up --build
-```
 
 ---
 
@@ -88,27 +72,6 @@ After substitution with `DOMAIN=example.com` and `DOMAIN2=other.com`:
 ```
 
 ---
-
-## CLI usage
-
-Build:
-
-```bash
-docker build -t my-nginx:latest ./nginx
-```
-
-Run:
-
-```bash
-docker run --rm \
-  -e DOMAIN=example.com \
-  -e DOMAIN2=other.com \
-  -v "$(pwd)/conf.d:/conf.d" \
-  -p 80:80 \
-  my-nginx:latest
-```
-
-(Windows PowerShell: replace `$(pwd)` with `${PWD}`)
 
 ---
 
