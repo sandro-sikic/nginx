@@ -73,6 +73,80 @@ After substitution with `DOMAIN=example.com` and `DOMAIN2=other.com`:
 
 ---
 
+## Adding it to another service
+
+This image is designed to sit in front of an app behind a shared reverse proxy that handles public traffic and TLS (an [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) container with the [acme-companion](https://github.com/nginx-proxy/acme-companion) for Let's Encrypt). Each service ships its own nginx container that joins the proxy's network.
+
+### 1. Create the shared network (once per host)
+
+The proxy and every service's nginx container must share an external Docker network:
+
+```bash
+docker network create proxy_network
+```
+
+### 2. Define the domain in an env file
+
+Put the domain in the service's `.env` (Compose reads it automatically):
+
+```env
+DOMAIN=app.example.com
+```
+
+### 3. Add the nginx service to the service's `docker-compose.yml`
+
+```yaml
+services:
+  nginx:
+    image: ghcr.io/sandro-sikic/nginx:latest
+    environment:
+      - DOMAIN=${DOMAIN}
+      - VIRTUAL_HOST=${DOMAIN}
+      - LETSENCRYPT_HOST=${DOMAIN}
+    volumes:
+      - ./conf.d:/conf.d
+    depends_on:
+      - app
+    networks:
+      - default
+      - proxy_network
+
+networks:
+  proxy_network:
+    external: true
+```
+
+- `DOMAIN` is substituted into your `conf.d` templates by this image.
+- `VIRTUAL_HOST` tells nginx-proxy which domain to route to this container.
+- `LETSENCRYPT_HOST` tells acme-companion to issue a certificate for that domain.
+- Joining both `default` and `proxy_network` lets nginx reach your app on the service's own network while staying reachable by the proxy. Keep the app and database on `default` only so they are not exposed to the proxy network.
+- Do not publish port `80` on this container; the shared proxy is the only public entry point.
+
+### 4. Add a template in `conf.d/`
+
+Point `proxy_pass` at the app's Compose service name and internal port:
+
+```nginx
+server {
+  listen 80;
+  server_name ${DOMAIN};
+
+  resolver 127.0.0.11 valid=10s;
+  set $app http://app:3000;
+
+  location / {
+    proxy_pass $app;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}
+```
+
+Replace `app` and `3000` with your service name and port. Then run `docker compose up -d`. A complete working example is [sandro-sikic/analytics](https://github.com/sandro-sikic/analytics) (Umami behind this image).
+
 ---
 
 ## Notes & caveats ⚠️
